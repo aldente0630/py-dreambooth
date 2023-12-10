@@ -1,0 +1,5 @@
+bitsandbytes>=0.41.0
+diffusers>=0.21.1
+torch==2.0.1
+wandb>=0.15.11
+xformers>=0.0.19

@@ -1,0 +1,4 @@
+accelerate>=0.23.0
+diffusers>=0.21.1
+torch==2.0.0
+xformers>=0.0.19

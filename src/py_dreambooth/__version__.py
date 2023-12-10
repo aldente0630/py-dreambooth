@@ -1,0 +1,7 @@
+__title__ = "py-dreambooth"
+__description__ = "Easily create your own AI avatar images!"
+__version__ = "0.2.6"
+__author__ = "Youngmin Kim"
+__author_email__ = "aldente0630@gmail.com"
+__license__ = "creativeml-openrail-m"
+__url__ = "https://github.com/youngmki/py-dreambooth"
