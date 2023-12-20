@@ -42,7 +42,7 @@ required_packages = [
     "autocrop>=1.3.0",
     "awscli>=1.29.41",
     "bitsandbytes>=0.41.0",
-    "diffusers>=0.21.1",
+    "diffusers>=0.24.0",
     "matplotlib>=3.7.2",
     "pillow>=9.4.0",
     "torch==2.0.1",

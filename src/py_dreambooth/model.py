@@ -816,6 +816,8 @@ class SdxlDreamboothLoraModel(BaseModel):
             2,
             "--learning_rate",
             self.learning_rate,
+            "--snr_gamma",
+            5.0,
             "--lr_scheduler",
             "constant",
             "--lr_warmup_steps",
