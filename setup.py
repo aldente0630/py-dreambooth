@@ -44,6 +44,7 @@ required_packages = [
     "bitsandbytes>=0.41.0",
     "diffusers>=0.24.0",
     "matplotlib>=3.7.2",
+    "peft>=0.7.1",
     "pillow>=9.4.0",
     "torch==2.0.1",
     "torchvision>=0.15.2",
@@ -52,7 +53,7 @@ required_packages = [
     "tqdm>=4.65.0",
     "transformers>=4.33.2",
     "wandb>=0.15.11",
-    "xformers>=0.0.19",
+    "xformers>=0.0.20",
 ]
 extras = {
     "test": [

@@ -866,8 +866,8 @@ class SdxlDreamboothLoraModel(BaseModel):
                 "True",
                 "--use_8bit_adam",
                 "True",
-                "--enable_xformers_memory_efficient_attention",
-                "True",
+                # "--enable_xformers_memory_efficient_attention",
+                # "True",
                 "--mixed_precision",
                 "fp16",
             ]
