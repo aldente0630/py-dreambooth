@@ -38,22 +38,24 @@ for key in [
 readme = read_file(["README.md"])
 
 required_packages = [
-    "accelerate>=0.23.0",
+    "accelerate>=0.25.0",
     "autocrop>=1.3.0",
-    "awscli>=1.29.41",
+    "awscli>=1.31.12",
     "bitsandbytes>=0.41.0",
-    "diffusers>=0.24.0",
-    "matplotlib>=3.7.2",
-    "peft>=0.7.1",
-    "pillow>=9.4.0",
+    "deepspeed>=0.12.6",
+    "diffusers==0.25.0",
+    "matplotlib>=3.8.0",
+    "peft==0.7.1",
+    "pillow>=10.0.1",
+    "safetensors>=0.4.1",
+    "sagemaker>=2.199.0",
+    "tensorboard>=2.15.1",
     "torch==2.0.1",
     "torchvision>=0.15.2",
-    "sagemaker>=2.183.0",
-    "tensorboard>=2.13.0",
-    "tqdm>=4.65.0",
-    "transformers>=4.33.2",
-    "wandb>=0.15.11",
-    "xformers>=0.0.20",
+    "tqdm>=4.66.1",
+    "transformers==4.36.2",
+    "wandb>=0.16.1",
+    "xformers>=0.0.19",
 ]
 extras = {
     "test": [
