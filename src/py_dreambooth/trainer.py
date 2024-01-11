@@ -21,18 +21,17 @@ TRANSFORMER_VERSION: Final = "4.28.1"
 PY_VERSION: Final = "py310"
 
 STEP_MULTIPLIER: Final = 100
-
 BASE_DIR: Final = "/opt/ml/processing"
 
 
 class BaseTrainer(metaclass=ABCMeta):
     """
-    An abstract class to represent the trainer
+    An abstract class to represent the trainer.
     Args:
-        config_path: The path to the Accelerate config file
-        report_to: The solution to report results and log
-        wandb_api_key: The API key to use for logging to WandB
-        logger: The logger to use for logging messages
+        config_path: The path to the Accelerate config file.
+        report_to: The solution to report results and log.
+        wandb_api_key: The API key to use for logging to WandB.
+        logger: The logger to use for logging messages.
     """
 
     def __init__(
@@ -50,24 +49,24 @@ class BaseTrainer(metaclass=ABCMeta):
     @abstractmethod
     def fit(self, model: BaseModel, dataset: LocalDataset) -> BasePredictor:
         """
-        Fit a model to a dataset
+        Fit a model to a dataset.
         Args:
-            model: The base model instance to be fitted
-            dataset: The local dataset instance to fit the model
+            model: The base model instance to be fitted.
+            dataset: The local dataset instance to fit the model.
         Returns:
-            The base predictor instance of the fitted model
+            The base predictor instance of the fitted model.
         """
 
 
 class LocalTrainer(BaseTrainer):
     """
-    A class to represent the local trainer
+    A class to represent the local trainer.
     Args:
-        config_path: The path to the Accelerate config file
-        output_dir: The directory to store the model
-        report_to: The solution to report results and log
-        wandb_api_key: The API key to use for logging to WandB
-        logger: The logger to use for logging messages
+        config_path: The path to the Accelerate config file.
+        output_dir: The directory to store the model.
+        report_to: The solution to report results and log.
+        wandb_api_key: The API key to use for logging to WandB.
+        logger: The logger to use for logging messages.
     """
 
     def __init__(
@@ -85,12 +84,12 @@ class LocalTrainer(BaseTrainer):
 
     def fit(self, model: BaseModel, dataset: LocalDataset) -> LocalPredictor:
         """
-        Fit a model to a dataset
+        Fit a model to a dataset.
         Args:
-            model: The base model instance to be fitted
-            dataset: The local dataset instance to fit the model
+            model: The base model instance to be fitted.
+            dataset: The local dataset instance to fit the model.
         Returns:
-            The local predictor instance of the fitted model
+            The local predictor instance of the fitted model.
         """
         kwargs = {
             "data_dir": dataset.preproc_data_dir,
@@ -100,11 +99,7 @@ class LocalTrainer(BaseTrainer):
         }
 
         if model.max_train_steps is None:
-            if isinstance(model, (SdDreamboothLoraModel, SdxlDreamboothLoraModel)):
-                max_train_steps = round(STEP_MULTIPLIER * len(dataset))
-            else:
-                max_train_steps = round(0.75 * STEP_MULTIPLIER * len(dataset))
-
+            max_train_steps = round(STEP_MULTIPLIER * len(dataset))
             kwargs["max_train_steps"] = max_train_steps
 
         else:
@@ -176,12 +171,12 @@ class AWSTrainer(BaseTrainer):
         self, model: BaseModel, dataset: AWSDataset
     ) -> Union[AWSPredictor, LocalPredictor]:
         """
-        Fit a model to a dataset
+        Fit a model to a dataset.
         Args:
-            model: The base model instance to be fitted
-            dataset: The AWS dataset instance to fit the model
+            model: The base model instance to be fitted.
+            dataset: The AWS dataset instance to fit the model.
         Returns:
-            The AWS or local predictor instance of the fitted model
+            The AWS or local predictor instance of the fitted model.
         """
         self.sm_session = sagemaker.session.Session(boto_session=dataset.boto_session)
 

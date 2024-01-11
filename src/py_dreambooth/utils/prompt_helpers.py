@@ -3,12 +3,12 @@ import random
 
 def make_prompt(subject_name: str, class_name: str) -> str:
     """
-    Make a prompt sample
+    Make a prompt sample.
     Args:
-        subject_name: The subject name used for training
-        class_name: The class name used for training
+        subject_name: The subject name used for training.
+        class_name: The class name used for training.
     Returns:
-        The prompt string
+        The prompt string.
     """
     prompt_list = [
         "A hyper-realistic and stunning depiction of {subject_name} {class_name}, capturing the {class_name}'s charisma and charm, trending on Behance, intricate textures, vivid color palette, reminiscent of Alex Ross and Norman Rockwell",
@@ -34,9 +34,9 @@ def make_prompt(subject_name: str, class_name: str) -> str:
 
 def make_negative_prompt() -> str:
     """
-    Make a negative prompt sample
+    Make a negative prompt sample.
     Returns:
-        The negative prompt string
+        The negative prompt string.
     """
     negative_prompt = """
     (deformed iris, deformed pupils), text, cropped, out of frame, worst quality, low quality, jpeg artifacts, ugly, 

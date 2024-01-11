@@ -1,7 +1,7 @@
 import os
 from abc import ABCMeta, abstractmethod
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 import torch
 from diffusers import (
     DDIMScheduler,
@@ -10,6 +10,7 @@ from diffusers import (
     StableDiffusionPipeline,
 )
 from diffusers.models import AutoencoderKL
+from safetensors.torch import load_file
 
 
 class HfModel(str, Enum):
@@ -72,26 +73,28 @@ class SchedulerConfig(Enum):
 
 class BaseModel(metaclass=ABCMeta):
     """
-    An abstract class to represent the image generative model
+    An abstract class to represent the image generative model.
     Args:
-        pretrained_model_name_or_path: The name of the HuggingFace Hub model to use
-        subject_name: The subject name to use for training
-        subject_supplement: The subject supplement to use for training
-        class_name: The class name to use for training
-        with_prior_preservation: Whether to use prior preservation for training
-        seed: The seed to use for generating random numbers
-        resolution: The resolution of the images
-        center_crop: Whether to crop images by center
-        train_text_encoder: Whether to train the text encoder
-        train_batch_size: The batch size to use for training
-        num_train_epochs: The number of epochs to train
-        max_train_steps: The maximum number of steps to train
-        learning_rate: The learning rate to use for training
-        validation_prompt: The validation prompt to use for training
-        reduce_gpu_memory_usage: Whether to reduce GPU memory usage
-            (Instead, training speed is reduced)
-        scheduler_type: The type of scheduler to use for training
-        compress_output: Whether to compress the output directory
+        pretrained_model_name_or_path:
+            Path to pretrained model or model identifier from huggingface.co/models.
+        subject_name: The subject name to use for training.
+        subject_supplement: The subject supplement to use for training.
+        class_name: The class name to use for training.
+        validation_prompt: A prompt that is used during validation to verify that the model is learning.
+        with_prior_preservation: Whether to use prior preservation.
+        seed: A seed for reproducible training.
+        resolution: The resolution for input images, all the images in the train/validation dataset will be resized
+            to this.
+        center_crop: Whether to center crop the input images to the resolution. If not set, the images will be randomly
+            cropped. The images will be resized to the resolution first before cropping.
+        train_text_encoder: Whether to train the text encoder. If set, the text encoder should be float32 precision.
+        train_batch_size: Batch size (per device) for the training dataloader.
+        num_train_epochs: Total number of training epochs to perform.
+        max_train_steps: Total number of training steps to perform. If provided, overrides num_train_epochs.
+        learning_rate: Initial learning rate (after the potential warmup period) to use.
+        reduce_gpu_memory_usage: Whether to reduce GPU memory usage (Instead, training speed is reduced).
+        scheduler_type: The type of scheduler to use for training.
+        compress_output: Whether to compress the output directory.
     """
 
     def __init__(
@@ -100,6 +103,7 @@ class BaseModel(metaclass=ABCMeta):
         subject_name: Optional[str],
         subject_supplement: Optional[str],
         class_name: Optional[str],
+        validation_prompt: Optional[str],
         with_prior_preservation: bool,
         seed: Optional[int],
         resolution: int,
@@ -109,7 +113,6 @@ class BaseModel(metaclass=ABCMeta):
         num_train_epochs: int,
         max_train_steps: Optional[int],
         learning_rate: float,
-        validation_prompt: Optional[str],
         reduce_gpu_memory_usage: bool,
         scheduler_type: Optional[str],
         compress_output: bool,
@@ -158,39 +161,39 @@ class BaseModel(metaclass=ABCMeta):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     @staticmethod
-    def get_abs_path(*args) -> str:
+    def get_abs_path(*args) -> Union[bytes, str]:
         """
-        Get an absolute path relative to the current script file
+        Get an absolute path relative to the current script file.
         Returns:
-            The absolute path string
+            The absolute path string.
         """
         return os.path.join(os.path.dirname(__file__), *args)
 
     @abstractmethod
     def get_arguments(self) -> List[str]:
         """
-        Get the arguments for executing the command
+        Get the arguments for executing the command.
         Returns:
-            The list of arguments
+            The list of arguments.
         """
 
     @abstractmethod
     def load_model(self, output_dir: str) -> Dict[str, Any]:
         """
-        Load a model
+        Load a model.
         Args:
-            output_dir: The output directory
+            output_dir: The output directory.
         Returns:
-            The dictionary of model component names and their instances
+            The dictionary of model component names and their instances.
         """
 
     def make_command(self, config_path: Optional[str] = None) -> str:
         """
-        Make a command to execute the model training
+        Make a command to execute the model training.
         Args:
-            config_path: The path to the Accelerate config file
+            config_path: The path to the Accelerate config file.
         Returns:
-            The command string
+            The command string.
         """
         launch_arguments = (
             "" if config_path is None else f"--config_file {config_path} "
@@ -202,9 +205,9 @@ class BaseModel(metaclass=ABCMeta):
 
     def set_members(self, **kwarg) -> "BaseModel":
         """
-        Update the members of the model
+        Update the members of the model.
         Returns:
-            The BaseModel instance with the updated members
+            The BaseModel instance with the updated members.
         """
         for key, value in kwarg.items():
             if hasattr(self, key):
@@ -216,28 +219,28 @@ class BaseModel(metaclass=ABCMeta):
 
 class SdDreamboothModel(BaseModel):
     """
-    A class to represent the Stable Diffusion Dreambooth model
+    A class to represent the Stable Diffusion Dreambooth model.
     Args:
         pretrained_model_name_or_path:
-            The name of the HuggingFace Hub model to use
-        subject_name: The subject name to use for training
-        subject_supplement: The subject supplement to use for training
-        class_name: The class name to use for training
-        with_prior_preservation: Whether to use prior preservation
-        seed: The seed to use for generating random numbers
-        resolution: The resolution of the images
-        center_crop: Whether to crop images by center
-        train_text_encoder: Whether to train the text encoder
-        train_batch_size: The batch size to use for training
-        num_train_epochs: The number of epochs to train
-        max_train_steps: The maximum number of steps to train
-        learning_rate: The learning rate to use for training
-        validation_prompt: The validation prompt to use for training
-        reduce_gpu_memory_usage: Whether to reduce GPU memory usage
-            (Instead, training speed is reduced)
-        scheduler_type: The type of scheduler to use for training
-        use_ft_vae: Whether to use fine-tuned VAE
-        compress_output: Whether to compress the output directory
+            Path to pretrained model or model identifier from huggingface.co/models.
+        subject_name: The subject name to use for training.
+        subject_supplement: The subject supplement to use for training.
+        class_name: The class name to use for training.
+        validation_prompt: A prompt that is used during validation to verify that the model is learning.
+        with_prior_preservation: Whether to use prior preservation.
+        seed: A seed for reproducible training.
+        resolution: The resolution for input images, all the images in the train/validation dataset will be resized
+            to this.
+        center_crop: Whether to center crop the input images to the resolution. If not set, the images will be randomly
+            cropped. The images will be resized to the resolution first before cropping.
+        train_text_encoder: Whether to train the text encoder. If set, the text encoder should be float32 precision.
+        train_batch_size: Batch size (per device) for the training dataloader.
+        num_train_epochs: Total number of training epochs to perform.
+        max_train_steps: Total number of training steps to perform. If provided, overrides num_train_epochs.
+        learning_rate: Initial learning rate (after the potential warmup period) to use.
+        reduce_gpu_memory_usage: Whether to reduce GPU memory usage (Instead, training speed is reduced).
+        scheduler_type: The type of scheduler to use for training.
+        compress_output: Whether to compress the output directory.
     """
 
     def __init__(
@@ -246,6 +249,7 @@ class SdDreamboothModel(BaseModel):
         subject_name: Optional[str] = None,
         subject_supplement: Optional[str] = None,
         class_name: Optional[str] = None,
+        validation_prompt: Optional[str] = None,
         with_prior_preservation: bool = True,
         seed: Optional[int] = None,
         resolution: int = 768,
@@ -255,7 +259,6 @@ class SdDreamboothModel(BaseModel):
         num_train_epochs: int = 1,
         max_train_steps: Optional[int] = None,
         learning_rate: float = 2e-06,
-        validation_prompt: Optional[str] = None,
         reduce_gpu_memory_usage: bool = True,
         scheduler_type: Optional[str] = None,
         use_ft_vae: bool = False,
@@ -269,6 +272,7 @@ class SdDreamboothModel(BaseModel):
             subject_name,
             subject_supplement,
             class_name,
+            validation_prompt,
             with_prior_preservation,
             seed,
             resolution,
@@ -278,7 +282,6 @@ class SdDreamboothModel(BaseModel):
             num_train_epochs,
             max_train_steps,
             learning_rate,
-            validation_prompt,
             reduce_gpu_memory_usage,
             scheduler_type,
             compress_output,
@@ -299,11 +302,11 @@ class SdDreamboothModel(BaseModel):
         output_dir: str,
     ) -> Dict[str, Any]:
         """
-        Load a model
+        Load a model.
         Args:
-            output_dir: The output directory
+            output_dir: The output directory.
         Returns:
-            The dictionary of model component names and their instances
+            The dictionary of model component names and their instances.
         """
         if self.scheduler_type.upper() == "DDIM":
             scheduler = DDIMScheduler(**SchedulerConfig.DDIM.value)
@@ -331,9 +334,9 @@ class SdDreamboothModel(BaseModel):
 
     def get_arguments(self) -> List[str]:
         """
-        Get the arguments for executing the command
+        Get the arguments for executing the command.
         Returns:
-            The list of arguments
+            The list of arguments.
         """
         assert (
             self.data_dir or self.output_dir
@@ -356,6 +359,8 @@ class SdDreamboothModel(BaseModel):
             self.data_dir,
             "--instance_prompt",
             f"'{instance_prompt}'",
+            "--validation_prompt",
+            f"'{self.validation_prompt}'",
             "--num_class_images",
             150,
             "--output_dir",
@@ -370,20 +375,18 @@ class SdDreamboothModel(BaseModel):
             "constant",
             "--lr_warmup_steps",
             0,
-            "--validation_prompt",
-            f"'{self.validation_prompt}'",
             "--compress_output",
             self.compress_output,
         ]
 
         if self.with_prior_preservation:
             arguments += [
+                "--class_prompt",
+                f"'{class_prompt}'",
                 "--with_prior_preservation",
                 "True",
                 "--prior_loss_weight",
                 "1.0",
-                "--class_prompt",
-                f"'{class_prompt}'",
             ]
 
         if self.seed:
@@ -412,8 +415,8 @@ class SdDreamboothModel(BaseModel):
                 "True",
                 "--use_8bit_adam",
                 "True",
-                "--enable_xformers_memory_efficient_attention",
-                "True",
+                # "--enable_xformers_memory_efficient_attention",
+                # "True",
                 "--mixed_precision",
                 "fp16",
                 "--set_grads_to_none",
@@ -431,28 +434,29 @@ class SdDreamboothModel(BaseModel):
 
 class SdDreamboothLoraModel(BaseModel):
     """
-    A class to represent the Stable Diffusion Dreambooth LoRA model
+    A class to represent the Stable Diffusion Dreambooth LoRA model.
     Args:
         pretrained_model_name_or_path:
-            The name of the HuggingFace Hub model to use
-        subject_name: The subject name to use for training
-        subject_supplement: The subject supplement to use for training
-        class_name: The class name to use for training
-        with_prior_preservation: Whether to use prior preservation
-        seed: The seed to use for generating random numbers
-        resolution: The resolution of the images
-        center_crop: Whether to crop images by center
-        train_text_encoder: Whether to train the text encoder
-        train_batch_size: The batch size to use for training
-        num_train_epochs: The number of epochs to train
-        max_train_steps: The maximum number of steps to train
-        learning_rate: The learning rate to use for training
-        validation_prompt: The validation prompt to use for training
-        reduce_gpu_memory_usage: Whether to reduce GPU memory usage
-            (Instead, training speed is reduced)
-        scheduler_type: The type of scheduler to use for training
-        use_ft_vae: Whether to use fine-tuned VAE
-        compress_output: Whether to compress the output directory
+            Path to pretrained model or model identifier from huggingface.co/models.
+        subject_name: The subject name to use for training.
+        subject_supplement: The subject supplement to use for training.
+        class_name: The class name to use for training.
+        validation_prompt: A prompt that is used during validation to verify that the model is learning.
+        with_prior_preservation: Whether to use prior preservation.
+        seed: A seed for reproducible training.
+        resolution: The resolution for input images, all the images in the train/validation dataset will be resized
+            to this.
+        center_crop: Whether to center crop the input images to the resolution. If not set, the images will be randomly
+            cropped. The images will be resized to the resolution first before cropping.
+        train_text_encoder: Whether to train the text encoder. If set, the text encoder should be float32 precision.
+        train_batch_size: Batch size (per device) for the training dataloader.
+        num_train_epochs: Total number of training epochs to perform.
+        max_train_steps: Total number of training steps to perform. If provided, overrides num_train_epochs.
+        learning_rate: Initial learning rate (after the potential warmup period) to use.
+        rank: The dimension of the LoRA update matrices.
+        reduce_gpu_memory_usage: Whether to reduce GPU memory usage (Instead, training speed is reduced).
+        scheduler_type: The type of scheduler to use for training.
+        compress_output: Whether to compress the output directory.
     """
 
     def __init__(
@@ -461,6 +465,7 @@ class SdDreamboothLoraModel(BaseModel):
         subject_name: Optional[str] = None,
         subject_supplement: Optional[str] = None,
         class_name: Optional[str] = None,
+        validation_prompt: Optional[str] = None,
         with_prior_preservation: bool = True,
         seed: Optional[int] = None,
         resolution: int = 1024,
@@ -470,7 +475,7 @@ class SdDreamboothLoraModel(BaseModel):
         num_train_epochs: int = 1,
         max_train_steps: Optional[int] = None,
         learning_rate: float = 1e-4,
-        validation_prompt: Optional[str] = None,
+        rank: int = 4,
         reduce_gpu_memory_usage: bool = True,
         scheduler_type: Optional[str] = None,
         use_ft_vae: bool = False,
@@ -484,6 +489,7 @@ class SdDreamboothLoraModel(BaseModel):
             subject_name,
             subject_supplement,
             class_name,
+            validation_prompt,
             with_prior_preservation,
             seed,
             resolution,
@@ -493,12 +499,12 @@ class SdDreamboothLoraModel(BaseModel):
             num_train_epochs,
             max_train_steps,
             learning_rate,
-            validation_prompt,
             reduce_gpu_memory_usage,
             scheduler_type,
             compress_output,
         )
 
+        self.rank = rank
         self.use_ft_vae = use_ft_vae
         self.train_code_path = self.get_abs_path(
             "scripts",
@@ -516,11 +522,11 @@ class SdDreamboothLoraModel(BaseModel):
         output_dir: str,
     ) -> Dict[str, Any]:
         """
-        Load a model
+        Load a model.
         Args:
-            output_dir: The output directory
+            output_dir: The output directory.
         Returns:
-            The dictionary of model component names and their instances
+            The dictionary of model component names and their instances.
         """
         if self.scheduler_type.upper() == "DDIM":
             scheduler = DDIMScheduler(**SchedulerConfig.DDIM.value)
@@ -549,9 +555,9 @@ class SdDreamboothLoraModel(BaseModel):
 
     def get_arguments(self) -> List[str]:
         """
-        Get the arguments for executing the command
+        Get the arguments for executing the command.
         Returns:
-            The list of arguments
+            The list of arguments.
         """
         assert (
             self.data_dir or self.output_dir
@@ -574,6 +580,8 @@ class SdDreamboothLoraModel(BaseModel):
             self.data_dir,
             "--instance_prompt",
             f"'{instance_prompt}'",
+            "--validation_prompt",
+            f"'{self.validation_prompt}'",
             "--num_class_images",
             150,
             "--output_dir",
@@ -590,20 +598,20 @@ class SdDreamboothLoraModel(BaseModel):
             "constant",
             "--lr_warmup_steps",
             0,
-            "--validation_prompt",
-            f"'{self.validation_prompt}'",
+            "--rank",
+            self.rank,
             "--compress_output",
             self.compress_output,
         ]
 
         if self.with_prior_preservation:
             arguments += [
+                "--class_prompt",
+                f"'{class_prompt}'",
                 "--with_prior_preservation",
                 "True",
                 "--prior_loss_weight",
                 "1.0",
-                "--class_prompt",
-                f"'{class_prompt}'",
             ]
 
         if self.seed:
@@ -632,8 +640,8 @@ class SdDreamboothLoraModel(BaseModel):
                 "True",
                 "--use_8bit_adam",
                 "True",
-                "--enable_xformers_memory_efficient_attention",
-                "True",
+                # "--enable_xformers_memory_efficient_attention",
+                # "True",
                 "--mixed_precision",
                 "fp16",
             ]
@@ -649,28 +657,30 @@ class SdDreamboothLoraModel(BaseModel):
 
 class SdxlDreamboothLoraModel(BaseModel):
     """
-    A class to represent the Stable Diffusion XL Dreambooth LoRA model
+    A class to represent the Stable Diffusion XL Dreambooth LoRA model.
     Args:
         pretrained_model_name_or_path:
-            The name of the HuggingFace Hub model to use
-        subject_name: The subject name to use for training
-        subject_supplement: The subject supplement to use for training
-        class_name: The class name to use for training
-        with_prior_preservation: Whether to use prior preservation
-        seed: The seed to use for generating random numbers
-        resolution: The resolution of the images
-        center_crop: Whether to crop images by center
-        train_text_encoder: Whether to train the text encoder
-        train_batch_size: The batch size to use for training
-        num_train_epochs: The number of epochs to train for
-        max_train_steps: The maximum number of steps to train for
-        learning_rate: The learning rate to use for training
-        validation_prompt: The validation prompt to use for training
-        reduce_gpu_memory_usage: Whether to reduce GPU memory usage
-            (Instead, training speed is reduced)
-        scheduler_type: The type of scheduler to use for training
-        use_refiner:  Whether to use the refiner
-        compress_output: Whether to compress the output directory
+            Path to pretrained model or model identifier from huggingface.co/models.
+        subject_name: The subject name to use for training.
+        subject_supplement: The subject supplement to use for training.
+        class_name: The class name to use for training.
+        validation_prompt: A prompt that is used during validation to verify that the model is learning.
+        with_prior_preservation: Whether to use prior preservation.
+        seed: A seed for reproducible training.
+        resolution: The resolution for input images, all the images in the train/validation dataset will be resized
+            to this.
+        center_crop: Whether to center crop the input images to the resolution. If not set, the images will be randomly
+            cropped. The images will be resized to the resolution first before cropping.
+        train_text_encoder: Whether to train the text encoder. If set, the text encoder should be float32 precision.
+        train_batch_size: Batch size (per device) for the training dataloader.
+        num_train_epochs: Total number of training epochs to perform.
+        max_train_steps: Total number of training steps to perform. If provided, overrides num_train_epochs.
+        learning_rate: Initial learning rate (after the potential warmup period) to use.
+        rank: The dimension of the LoRA update matrices.
+        reduce_gpu_memory_usage: Whether to reduce GPU memory usage (Instead, training speed is reduced).
+        scheduler_type: The type of scheduler to use for training.
+        use_refiner:  Whether to use the refiner.
+        compress_output: Whether to compress the output directory.
     """
 
     def __init__(
@@ -679,6 +689,7 @@ class SdxlDreamboothLoraModel(BaseModel):
         subject_name: Optional[str] = None,
         subject_supplement: Optional[str] = None,
         class_name: Optional[str] = None,
+        validation_prompt: Optional[str] = None,
         with_prior_preservation: bool = True,
         seed: Optional[int] = None,
         resolution: int = 1024,
@@ -688,7 +699,7 @@ class SdxlDreamboothLoraModel(BaseModel):
         num_train_epochs: int = 1,
         max_train_steps: Optional[int] = None,
         learning_rate: float = 1e-4,
-        validation_prompt: Optional[str] = None,
+        rank: int = 32,
         reduce_gpu_memory_usage: bool = True,
         scheduler_type: Optional[str] = None,
         use_refiner: bool = False,
@@ -702,6 +713,7 @@ class SdxlDreamboothLoraModel(BaseModel):
             subject_name,
             subject_supplement,
             class_name,
+            validation_prompt,
             with_prior_preservation,
             seed,
             resolution,
@@ -711,12 +723,13 @@ class SdxlDreamboothLoraModel(BaseModel):
             num_train_epochs,
             max_train_steps,
             learning_rate,
-            validation_prompt,
             reduce_gpu_memory_usage,
             scheduler_type,
             compress_output,
         )
 
+        self.pretrained_vae_model_name_or_path = HfModel.SDXL_VAE.value
+        self.rank = rank
         self.use_refiner = use_refiner
         self.train_code_path = self.get_abs_path(
             "scripts",
@@ -734,11 +747,11 @@ class SdxlDreamboothLoraModel(BaseModel):
         output_dir: str,
     ) -> Dict[str, Any]:
         """
-        Load a model
+        Load a model.
         Args:
-            output_dir: The output directory
+            output_dir: The output directory.
         Returns:
-            The dictionary of model component names and their instances
+            The dictionary of model component names and their instances.
         """
         if self.scheduler_type.upper() == "DDIM":
             scheduler = DDIMScheduler(**SchedulerConfig.DDIM.value)
@@ -778,9 +791,9 @@ class SdxlDreamboothLoraModel(BaseModel):
 
     def get_arguments(self) -> List[str]:
         """
-        Get the arguments for executing the command
+        Get the arguments for executing the command.
         Returns:
-            The list of arguments
+            The list of arguments.
         """
         assert (
             self.data_dir or self.output_dir
@@ -805,6 +818,10 @@ class SdxlDreamboothLoraModel(BaseModel):
             self.data_dir,
             "--instance_prompt",
             f"'{instance_prompt}'",
+            "--validation_prompt",
+            f"'{self.validation_prompt}'",
+            "--num_validation_images",
+            4,
             "--num_class_images",
             150,
             "--output_dir",
@@ -823,22 +840,20 @@ class SdxlDreamboothLoraModel(BaseModel):
             "constant",
             "--lr_warmup_steps",
             0,
-            "--validation_prompt",
-            f"'{self.validation_prompt}'",
-            "--num_validation_images",
-            4,
+            "--rank",
+            self.rank,
             "--compress_output",
             self.compress_output,
         ]
 
         if self.with_prior_preservation:
             arguments += [
+                "--class_prompt",
+                f"'{class_prompt}'",
                 "--with_prior_preservation",
                 "True",
                 "--prior_loss_weight",
                 "1.0",
-                "--class_prompt",
-                f"'{class_prompt}'",
             ]
 
         if self.seed:
@@ -884,28 +899,32 @@ class SdxlDreamboothLoraModel(BaseModel):
 
 class SdxlDreamboothLoraAdvModel(BaseModel):
     """
-    A class to represent the Stable Diffusion XL Dreambooth LoRA advanced model
+    A class to represent the Stable Diffusion XL Dreambooth LoRA advanced model.
     Args:
         pretrained_model_name_or_path:
-            The name of the HuggingFace Hub model to use
-        subject_name: The subject name to use for training
-        subject_supplement: The subject supplement to use for training
-        class_name: The class name to use for training
-        with_prior_preservation: Whether to use prior preservation
-        seed: The seed to use for generating random numbers
-        resolution: The resolution of the images
-        center_crop: Whether to crop images by center
-        train_text_encoder: Whether to train the text encoder
-        train_batch_size: The batch size to use for training
-        num_train_epochs: The number of epochs to train for
-        max_train_steps: The maximum number of steps to train for
-        learning_rate: The learning rate to use for training
-        validation_prompt: The validation prompt to use for training
-        reduce_gpu_memory_usage: Whether to reduce GPU memory usage
-            (Instead, training speed is reduced)
-        scheduler_type: The type of scheduler to use for training
-        use_refiner:  Whether to use the refiner
-        compress_output: Whether to compress the output directory
+            Path to pretrained model or model identifier from huggingface.co/models.
+        subject_name: The subject name to use for training.
+        subject_supplement: The subject supplement to use for training.
+        class_name: The class name to use for training.
+        validation_prompt: A prompt that is used during validation to verify that the model is learning.
+        with_prior_preservation: Whether to use prior preservation.
+        seed: A seed for reproducible training.
+        resolution: The resolution for input images, all the images in the train/validation dataset will be resized
+            to this.
+        center_crop: Whether to center crop the input images to the resolution. If not set, the images will be randomly
+            cropped. The images will be resized to the resolution first before cropping.
+        train_text_encoder: Whether to train the text encoder. If set, the text encoder should be float32 precision.
+        train_batch_size: Batch size (per device) for the training dataloader.
+        num_train_epochs: Total number of training epochs to perform.
+        max_train_steps: Total number of training steps to perform. If provided, overrides num_train_epochs.
+        learning_rate: Initial learning rate (after the potential warmup period) to use.
+        text_encoder_lr: Text encoder learning rate to use.
+        use_adamw: Whether to use AdamW optimizer (or Prodigy).
+        rank: The dimension of the LoRA update matrices.
+        reduce_gpu_memory_usage: Whether to reduce GPU memory usage (Instead, training speed is reduced).
+        scheduler_type: The type of scheduler to use for training.
+        use_refiner:  Whether to use the refiner.
+        compress_output: Whether to compress the output directory.
     """
 
     def __init__(
@@ -914,6 +933,7 @@ class SdxlDreamboothLoraAdvModel(BaseModel):
         subject_name: Optional[str] = None,
         subject_supplement: Optional[str] = None,
         class_name: Optional[str] = None,
+        validation_prompt: Optional[str] = None,
         with_prior_preservation: bool = True,
         seed: Optional[int] = None,
         resolution: int = 1024,
@@ -926,7 +946,7 @@ class SdxlDreamboothLoraAdvModel(BaseModel):
         text_encoder_lr: Optional[float] = None,
         train_text_encoder_ti: bool = True,
         use_adamw: bool = True,
-        validation_prompt: Optional[str] = None,
+        rank: int = 32,
         reduce_gpu_memory_usage: bool = True,
         scheduler_type: Optional[str] = None,
         use_refiner: bool = False,
@@ -946,6 +966,7 @@ class SdxlDreamboothLoraAdvModel(BaseModel):
             subject_name,
             subject_supplement,
             class_name,
+            validation_prompt,
             with_prior_preservation,
             seed,
             resolution,
@@ -955,15 +976,16 @@ class SdxlDreamboothLoraAdvModel(BaseModel):
             num_train_epochs,
             max_train_steps,
             learning_rate,
-            validation_prompt,
             reduce_gpu_memory_usage,
             scheduler_type,
             compress_output,
         )
 
+        self.pretrained_vae_model_name_or_path = HfModel.SDXL_VAE.value
         self.text_encoder_lr = text_encoder_lr
         self.train_text_encoder_ti = train_text_encoder_ti
         self.use_adamw = use_adamw
+        self.rank = rank
         self.use_refiner = use_refiner
         self.train_code_path = self.get_abs_path(
             "scripts",
@@ -981,11 +1003,11 @@ class SdxlDreamboothLoraAdvModel(BaseModel):
         output_dir: str,
     ) -> Dict[str, Any]:
         """
-        Load a model
+        Load a model.
         Args:
-            output_dir: The output directory
+            output_dir: The output directory.
         Returns:
-            The dictionary of model component names and their instances
+            The dictionary of model component names and their instances.
         """
         if self.scheduler_type.upper() == "DDIM":
             scheduler = DDIMScheduler(**SchedulerConfig.DDIM.value)
@@ -1008,6 +1030,21 @@ class SdxlDreamboothLoraAdvModel(BaseModel):
             variant="fp16",
             torch_dtype=torch.float16,
         ).to(self.device)
+
+        if self.train_text_encoder_ti:
+            state_dict = load_file(output_dir)
+            pipeline.load_textual_inversion(
+                state_dict["clip_l"],
+                token=["<s0>", "<s1>"],
+                text_encoder=pipeline.text_encoder,
+                tokenizer=pipeline.tokenizer,
+            )
+            pipeline.load_textual_inversion(
+                state_dict["clip_g"],
+                token=["<s0>", "<s1>"],
+                text_encoder=pipeline.text_encoder_2,
+                tokenizer=pipeline.tokenizer_2,
+            )
         pipeline.load_lora_weights(output_dir)
 
         if self.use_refiner:
@@ -1025,9 +1062,9 @@ class SdxlDreamboothLoraAdvModel(BaseModel):
 
     def get_arguments(self) -> List[str]:
         """
-        Get the arguments for executing the command
+        Get the arguments for executing the command.
         Returns:
-            The list of arguments
+            The list of arguments.
         """
         assert (
             self.data_dir or self.output_dir
@@ -1050,8 +1087,14 @@ class SdxlDreamboothLoraAdvModel(BaseModel):
             self.pretrained_vae_model_name_or_path,
             "--instance_data_dir",
             self.data_dir,
+            "--repeats",
+            1,
             "--instance_prompt",
             f"'{instance_prompt}'",
+            "--validation_prompt",
+            f"'{self.validation_prompt}'",
+            "--num_validation_images",
+            4,
             "--num_class_images",
             150,
             "--output_dir",
@@ -1064,28 +1107,26 @@ class SdxlDreamboothLoraAdvModel(BaseModel):
             2,
             "--learning_rate",
             self.learning_rate,
-            "--snr_gamma",
-            5.0,
             "--lr_scheduler",
             "constant",
+            "--snr_gamma",
+            5.0,
             "--lr_warmup_steps",
             0,
-            "--validation_prompt",
-            f"'{self.validation_prompt}'",
-            "--num_validation_images",
-            4,
+            "--rank",
+            self.rank,
             "--compress_output",
             self.compress_output,
         ]
 
         if self.with_prior_preservation:
             arguments += [
+                "--class_prompt",
+                f"'{class_prompt}'",
                 "--with_prior_preservation",
                 "True",
                 "--prior_loss_weight",
                 "1.0",
-                "--class_prompt",
-                f"'{class_prompt}'",
             ]
 
         if self.seed:
@@ -1113,14 +1154,14 @@ class SdxlDreamboothLoraAdvModel(BaseModel):
 
         if self.train_text_encoder_ti:
             arguments += [
-                "--train_text_encoder_ti",
-                "True",
-                "--train_text_encoder_ti_frac",
-                0.5,
                 "--token_abstraction",
                 self.subject_name,
                 "--num_new_tokens_per_abstraction",
                 2,
+                "--train_text_encoder_ti",
+                "True",
+                "--train_text_encoder_ti_frac",
+                0.5,
                 "--adam_weight_decay_text_encoder",
                 "True",
             ]
@@ -1134,16 +1175,16 @@ class SdxlDreamboothLoraAdvModel(BaseModel):
             arguments += [
                 "--optimizer",
                 "prodigy",
-                "--prodigy_safeguard_warmup",
-                "True",
-                "--prodigy_use_bias_correction",
-                "True",
                 "--adam_beta1",
                 0.9,
                 "--adam_beta2",
                 0.99,
                 "--adam_weight_decay",
                 0.01,
+                "--prodigy_use_bias_correction",
+                "True",
+                "--prodigy_safeguard_warmup",
+                "True",
             ]
 
         if self.reduce_gpu_memory_usage:
@@ -1157,7 +1198,7 @@ class SdxlDreamboothLoraAdvModel(BaseModel):
                 # "--enable_xformers_memory_efficient_attention",
                 # "True",
                 "--mixed_precision",
-                "fp16",
+                "bf16",
             ]
 
         if self.report_to:

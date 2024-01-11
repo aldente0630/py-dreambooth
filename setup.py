@@ -47,6 +47,7 @@ required_packages = [
     "matplotlib>=3.8.0",
     "peft==0.7.1",
     "pillow>=10.0.1",
+    "prodigyopt>=1.0",
     "safetensors>=0.4.1",
     "sagemaker>=2.199.0",
     "tensorboard>=2.15.1",

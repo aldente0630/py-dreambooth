@@ -11,11 +11,11 @@ from autocrop import Cropper
 
 def decode_base64_image(image_string: str) -> Image.Image:
     """
-    Decodes a base64 encoded image string and returns an Image object
+    Decodes a base64 encoded image string and returns an Image object.
     Args:
-        image_string: The base64 encoded image string
+        image_string: The base64 encoded image string.
     Returns:
-        The Image object
+        The Image object.
     """
     base64_image = base64.b64decode(image_string)
     buffer = BytesIO(base64_image)
@@ -24,11 +24,11 @@ def decode_base64_image(image_string: str) -> Image.Image:
 
 def encode_base64_image(file_name: str) -> str:
     """
-    Encodes an image file to a base64 encoded string
+    Encodes an image file to a base64 encoded string.
     Args:
-        file_name: The name of the image file
+        file_name: The name of the image file.
     Returns:
-        The base64 encoded string
+        The base64 encoded string.
     """
     with open(file_name, "rb") as image:
         image_string = base64.b64encode(bytearray(image.read())).decode()
@@ -39,13 +39,13 @@ def detect_face_and_resize_image(
     image_path: str, tgt_width: int, tgt_height: int
 ) -> Image:
     """
-    Detects faces in an image and resizes it to the specified resolution
+    Detects faces in an image and resizes it to the specified resolution.
     Args:
-        image_path: The path to the image
-        tgt_width: The target width of the image
-        tgt_height: The target height of the image
+        image_path: The path to the image.
+        tgt_width: The target width of the image.
+        tgt_height: The target height of the image.
     Returns:
-        The resized Image object
+        The resized Image object.
     """
     cropper = Cropper(width=tgt_width, height=tgt_height)
     cropped_array = cropper.crop(image_path)
@@ -63,11 +63,11 @@ def display_images(
     fig_size: int = 20,
 ) -> None:
     """
-    Displays a grid of images
+    Displays a grid of images.
     Args:
-        images: The list of images to display
-        n_columns: The number of columns in the grid
-        fig_size: The size of the figure (width)
+        images: The list of images to display.
+        n_columns: The number of columns in the grid.
+        fig_size: The size of the figure (width).
     """
     n_columns = min(len(images), n_columns)
     quotient, remainder = divmod(len(images), n_columns)
@@ -87,12 +87,12 @@ def display_images(
 
 def get_image_grid(images: List[Image.Image], n_columns: int = 3) -> Image.Image:
     """
-    Get a grid of images
+    Get a grid of images.
     Args:
-        images: The list of images to display
-        n_columns: The number of columns in the grid
+        images: The list of images to display.
+        n_columns: The number of columns in the grid.
     Returns:
-        The grid of images as an Image object
+        The grid of images as an Image object.
     """
     n_columns = min(len(images), n_columns)
     quotient, remainder = divmod(len(images), n_columns)
@@ -115,11 +115,11 @@ def get_image_grid(images: List[Image.Image], n_columns: int = 3) -> Image.Image
 
 def get_image_paths(images_dir: str) -> List[str]:
     """
-    Get a list of image paths from a directory
+    Get a list of image paths from a directory.
     Args:
-        images_dir: The directory containing the images
+        images_dir: The directory containing the images.
     Returns:
-        A list of image paths
+        A list of image paths.
     """
     return list(
         chain(
@@ -133,13 +133,13 @@ def resize_and_center_crop_image(
     image_path: str, tgt_width: int, tgt_height: int
 ) -> Image:
     """
-    Resize and center crop an image
+    Resize and center crop an image.
     Args:
-        image_path: The path to the image
-        tgt_width: The target width of the image
-        tgt_height: The target height of the image
+        image_path: The path to the image.
+        tgt_width: The target width of the image.
+        tgt_height: The target height of the image.
     Returns:
-        The resized and centered cropped Image object
+        The resized and centered cropped Image object.
     """
     image = Image.open(image_path).convert("RGB")
     src_width, src_height = image.size
@@ -163,9 +163,9 @@ def resize_and_center_crop_image(
 
 def validate_dir(tgt_dir: str) -> None:
     """
-    Validates that a directory exists and is not empty
+    Validates that a directory exists and is not empty.
     Args:
-        tgt_dir: The directory to validate
+        tgt_dir: The directory to validate.
     """
     if not os.path.exists(tgt_dir) and len(get_image_paths(tgt_dir)) == 0:
         raise ValueError(f"The directory '{tgt_dir}' does not exist or is empty.")

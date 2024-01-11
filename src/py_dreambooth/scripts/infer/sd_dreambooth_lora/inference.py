@@ -11,7 +11,7 @@ from diffusers.models import AutoencoderKL
 
 class HfModel(str, Enum):
     """
-    A class that holds the HuggingFace Hub model IDs
+    A class that holds the HuggingFace Hub model IDs.
     """
 
     SD_V2_1 = "stabilityai/stable-diffusion-2-1-base"
@@ -20,7 +20,7 @@ class HfModel(str, Enum):
 
 class SchedulerConfig(Enum):
     """
-    A class that holds scheduler configuration values for inference
+    A class that holds scheduler configuration values for inference.
     """
 
     DDIM = {
@@ -42,11 +42,11 @@ class SchedulerConfig(Enum):
 
 def model_fn(model_dir: str) -> Any:
     """
-    A function for SageMaker endpoint that loads the model from the model directory
+    A function for SageMaker endpoint that loads the model from the model directory.
     Args:
-        model_dir: The directory where the model is stored
+        model_dir: The directory where the model is stored.
     Returns:
-        The dictionary of model component names and their instances
+        The dictionary of model component names and their instances.
     """
     scheduler_type = os.getenv("SCHEDULER_TYPE", "DDIM")
 
@@ -83,12 +83,12 @@ def predict_fn(
     data: Dict[str, Union[int, float, str]], model_components: Dict[str, Any]
 ) -> Dict[str, List[str]]:
     """
-    A function for SageMaker endpoint to generate images
+    A function for SageMaker endpoint to generate images.
     Args:
-        data: The input data
-        model_components: The model components
+        data: The input data.
+        model_components: The model components.
     Returns:
-        The dictionary of generated images in base64 encoding format
+        The dictionary of generated images in base64 encoding format.
     """
     prompt = data.pop("prompt", data)
     height = data.pop("height", 512)

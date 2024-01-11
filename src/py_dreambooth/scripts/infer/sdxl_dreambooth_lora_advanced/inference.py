@@ -6,6 +6,7 @@ from io import BytesIO
 from typing import Any, Dict, List
 import torch
 from diffusers import DDIMScheduler, DiffusionPipeline, EulerDiscreteScheduler
+from safetensors.torch import load_file
 
 
 class HfModel(str, Enum):
@@ -69,6 +70,21 @@ def model_fn(model_dir: str) -> Dict[str, Any]:
         revision="fp16",
         torch_dtype=torch.float16,
     ).to("cuda")
+
+    if ast.literal_eval(os.environ.get("TRAIN_TEXT_ENCODER_TI", "True")):
+        state_dict = load_file(model_dir)
+        pipeline.load_textual_inversion(
+            state_dict["clip_l"],
+            token=["<s0>", "<s1>"],
+            text_encoder=pipeline.text_encoder,
+            tokenizer=pipeline.tokenizer,
+        )
+        pipeline.load_textual_inversion(
+            state_dict["clip_g"],
+            token=["<s0>", "<s1>"],
+            text_encoder=pipeline.text_encoder_2,
+            tokenizer=pipeline.tokenizer_2,
+        )
     pipeline.load_lora_weights(model_dir)
 
     if ast.literal_eval(os.environ.get("USE_REFINER", "False")):

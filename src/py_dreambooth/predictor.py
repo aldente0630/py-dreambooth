@@ -6,7 +6,12 @@ import sagemaker
 import torch
 from PIL import Image
 from sagemaker.huggingface.estimator import HuggingFaceModel
-from .model import BaseModel, SdDreamboothLoraModel, SdxlDreamboothLoraModel
+from .model import (
+    BaseModel,
+    SdDreamboothLoraModel,
+    SdxlDreamboothLoraModel,
+    SdxlDreamboothLoraAdvModel,
+)
 from .utils.aws_helpers import create_role_if_not_exists
 from .utils.image_helpers import decode_base64_image
 from .utils.misc import log_or_print
@@ -20,10 +25,10 @@ PY_VERSION: Final = "py310"
 
 class BasePredictor(metaclass=ABCMeta):
     """
-    An abstract class to represent the predictor
+    An abstract class to represent the predictor.
     Args:
-        model: The base model instance to use for prediction
-        logger: The logger to use for logging messages
+        model: The base model instance to use for prediction.
+        logger: The logger to use for logging messages.
     """
 
     def __init__(self, model: BaseModel, logger: Optional[logging.Logger]) -> None:
@@ -45,43 +50,43 @@ class BasePredictor(metaclass=ABCMeta):
         cross_attention_scale: Optional[float],
     ) -> List[Image.Image]:
         """
-        Generate images given a prompt
+        Generate images given a prompt.
         Args:
-            prompt: The prompt to use for generating images
-            height: The height of the generated images
-            width: The width of the generated images
-            num_inference_steps: The number of inference steps to use for generating images
-            guidance_scale: The guidance scale to use for generating images
-            negative_prompt: The negative prompt to use for generating images
-            num_images_per_prompt: The number of images to generate per prompt
-            seed: The seed to use for generating random numbers
-            high_noise_frac: The fraction of the noise to use for denoising
-            cross_attention_scale: The scale to use for cross-attention
+            prompt: The prompt to use for generating images.
+            height: The height of the generated images.
+            width: The width of the generated images.
+            num_inference_steps: The number of inference steps to use for generating images.
+            guidance_scale: The guidance scale to use for generating images.
+            negative_prompt: The negative prompt to use for generating images.
+            num_images_per_prompt: The number of images to generate per prompt.
+            seed: The seed to use for generating random numbers.
+            high_noise_frac: The fraction of the noise to use for denoising.
+            cross_attention_scale: The scale to use for cross-attention.
         Returns:
-            A list of PIL images representing the generated images
+            A list of PIL images representing the generated images.
         """
 
     def validate_prompt(self, prompt: str) -> bool:
         """
-        Validate the prompt
+        Validate the prompt.
         Args:
-            prompt: The prompt to validate
+            prompt: The prompt to validate.
         Returns:
-            Whether the prompt is valid or not
+            Whether the prompt is valid or not.
         """
         return not (
-            self.model.subject_name in prompt.lower()
-            and self.model.class_name in prompt.lower()
+            self.model.subject_name.lower() in prompt.lower()
+            and self.model.class_name.lower() in prompt.lower()
         )
 
 
 class LocalPredictor(BasePredictor):
     """
-    A class to represent the local predictor
+    A class to represent the local predictor.
     Args:
-        model: The base model instance to use for inference
-        output_dir: The output directory
-        logger: The logger to use for logging messages
+        model: The base model instance to use for inference.
+        output_dir: The output directory.
+        logger: The logger to use for logging messages.
     """
 
     def __init__(
@@ -111,20 +116,20 @@ class LocalPredictor(BasePredictor):
         cross_attention_scale: float = 1.0,
     ) -> List[Image.Image]:
         """
-        Generate images given a prompt
+        Generate images given a prompt.
         Args:
-            prompt: The prompt to use for generating images
-            height: The height of the generated images
-            width: The width of the generated images
-            num_inference_steps: The number of inference steps to use for generating images
-            guidance_scale: The guidance scale to use for generating images
-            negative_prompt: The negative prompt to use for generating images
-            num_images_per_prompt: The number of images to generate per prompt
-            seed: seed: The seed to use for generating random numbers
-            high_noise_frac: The fraction of the noise to use for denoising
-            cross_attention_scale: The scale to use for cross-attention
+            prompt: The prompt to use for generating images.
+            height: The height of the generated images.
+            width: The width of the generated images.
+            num_inference_steps: The number of inference steps to use for generating images.
+            guidance_scale: The guidance scale to use for generating images.
+            negative_prompt: The negative prompt to use for generating images.
+            num_images_per_prompt: The number of images to generate per prompt.
+            seed: seed: The seed to use for generating random numbers.
+            high_noise_frac: The fraction of the noise to use for denoising.
+            cross_attention_scale: The scale to use for cross-attention.
         Returns:
-            A list of PIL images representing the generated images
+            A list of PIL images representing the generated images.
         """
         if self.validate_prompt(prompt):
             log_or_print(
@@ -138,7 +143,14 @@ class LocalPredictor(BasePredictor):
             else torch.Generator(device=self.model.device).manual_seed(seed)
         )
 
-        if isinstance(self.model, (SdDreamboothLoraModel, SdxlDreamboothLoraModel)):
+        if isinstance(
+            self.model,
+            (
+                SdDreamboothLoraModel,
+                SdxlDreamboothLoraModel,
+                SdxlDreamboothLoraAdvModel,
+            ),
+        ):
             kwargs = {"cross_attention_kwargs": {"scale": cross_attention_scale}}
         else:
             kwargs = {}
@@ -182,15 +194,15 @@ class LocalPredictor(BasePredictor):
 
 class AWSPredictor(BasePredictor):
     """
-    A class to represent the AWS predictor
+    A class to represent the AWS predictor.
     Args:
-        model: The base model instance to use for inference
-        s3_model_uri: The S3 URI of the model
-        boto_session: The boto session to use for AWS interactions
-        iam_role_name: The name of the IAM role to use
-        sm_infer_instance_type: The SageMaker instance type to use for inference
-        sm_endpoint_name: The name of the SageMaker endpoint to use for inference
-        logger: The logger to use for logging messages
+        model: The base model instance to use for inference.
+        s3_model_uri: The S3 URI of the model.
+        boto_session: The boto session to use for AWS interactions.
+        iam_role_name: The name of the IAM role to use.
+        sm_infer_instance_type: The SageMaker instance type to use for inference.
+        sm_endpoint_name: The name of the SageMaker endpoint to use for inference.
+        logger: The logger to use for logging messages.
     """
 
     def __init__(
@@ -231,6 +243,8 @@ class AWSPredictor(BasePredictor):
             env.update({"USE_FT_VAE": "True"})
         if hasattr(model, "use_refiner") and model.use_refiner:
             env.update({"USE_REFINER": "True"})
+        if hasattr(model, "train_text_encoder_ti") and model.train_text_encoder_ti:
+            env.update({"TRAIN_TEXT_ENCODER_TI": "True"})
 
         sm_session = sagemaker.session.Session(boto_session=boto_session)
 
@@ -277,20 +291,20 @@ class AWSPredictor(BasePredictor):
         cross_attention_scale: float = 1.0,
     ) -> List[Image.Image]:
         """
-        Generate images given a prompt
+        Generate images given a prompt.
         Args:
-            prompt: The prompt to use for generating images
-            height: The height of the generated images
-            width: The width of the generated images
-            num_inference_steps: The number of inference steps to use for generating images
-            guidance_scale: The guidance scale to use for generating images
-            negative_prompt: The negative prompt to use for generating images
-            num_images_per_prompt: The number of images to generate per prompt
-            seed: seed: The seed to use for generating random numbers
-            high_noise_frac: The fraction of the noise to use for denoising
-            cross_attention_scale: The scale to use for cross-attention
+            prompt: The prompt to use for generating images.
+            height: The height of the generated images.
+            width: The width of the generated images.
+            num_inference_steps: The number of inference steps to use for generating images.
+            guidance_scale: The guidance scale to use for generating images.
+            negative_prompt: The negative prompt to use for generating images.
+            num_images_per_prompt: The number of images to generate per prompt.
+            seed: seed: The seed to use for generating random numbers.
+            high_noise_frac: The fraction of the noise to use for denoising.
+            cross_attention_scale: The scale to use for cross-attention.
         Returns:
-            A list of PIL images representing the generated images
+            A list of PIL images representing the generated images.
         """
         if self.validate_prompt(prompt):
             log_or_print(

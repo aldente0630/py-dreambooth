@@ -23,19 +23,20 @@ from .utils.misc import log_or_print
 
 class HfRepoId(str, Enum):
     """
-    A class that holds the HuggingFace Hub repository ID
+    A class that holds the HuggingFace Hub repository ID.
     """
 
     DOG_EXAMPLE = "diffusers/dog-example"
+    FACE_EXAMPLE = "multimodalart/faces-prior-preservation"
 
 
 class LocalDataset:
     """
-    A class that represents a local dataset
+    A class that represents a local dataset.
     Args:
-        data_dir: The name of the local directory containing the images
-            you want the model to train on
-        logger: The logger to use for logging messages
+        data_dir: The name of the local directory containing the images.
+            you want the model to train on.
+        logger: The logger to use for logging messages.
     """
 
     def __init__(self, data_dir: str, logger: Optional[logging.Logger] = None) -> None:
@@ -51,11 +52,11 @@ class LocalDataset:
 
     def download_examples(self, repo_id: Optional[str] = None) -> "LocalDataset":
         """
-        Download a dataset from the HuggingFace Hub to the local directory
+        Download a dataset from the HuggingFace Hub to the local directory.
         Args:
-            repo_id: The ID of the HuggingFace Hub repository to download
+            repo_id: The ID of the HuggingFace Hub repository to download.
         Returns:
-            The local dataset instance
+            The local dataset instance.
         """
         shutil.rmtree(self.raw_data_dir)
 
@@ -74,16 +75,46 @@ class LocalDataset:
 
         return self
 
+    def download_class_examples(self, repo_id: Optional[str] = None) -> "LocalDataset":
+        """
+        Download a class dataset from the HuggingFace Hub to the local directory.
+        Args:
+            repo_id: The ID of the HuggingFace Hub repository to download.
+        Returns:
+            The local dataset instance.
+        """
+        raw_class_data_dir = os.path.join(self.preproc_data_dir, "class")
+
+        if os.path.exists(raw_class_data_dir):
+            shutil.rmtree(raw_class_data_dir)
+
+        os.makedirs(raw_class_data_dir)
+
+        if repo_id is None:
+            repo_id = HfRepoId.FACE_EXAMPLE.value
+
+        snapshot_download(
+            repo_id,
+            local_dir=raw_class_data_dir,
+            repo_type="dataset",
+            ignore_patterns=".gitattributes",
+        )
+
+        msg = f"The dataset '{repo_id}' has been downloaded from the HuggingFace Hub to '{raw_class_data_dir}'."
+        log_or_print(msg, self.logger)
+
+        return self
+
     def preprocess_images(
         self, resolution: int = 1024, detect_face: bool = False
     ) -> "LocalDataset":
         """
-        Preprocess (crop and resize) images in a local directory
+        Preprocess (crop and resize) images in a local directory.
         Args:
-            resolution: The resolution to resize the images to
-            detect_face: Whether to detect faces and crop around them. If not, crop by center
+            resolution: The resolution to resize the images to.
+            detect_face: Whether to detect faces and crop around them. If not, crop by center.
         Returns:
-            The local dataset instance
+            The local dataset instance.
         """
         validate_dir(self.raw_data_dir)
 
@@ -132,15 +163,13 @@ class LocalDataset:
 
 class AWSDataset(LocalDataset):
     """
-    A class that represents an AWS dataset
+    A class that represents an AWS dataset.
     Args:
-        data_dir: The name of the local directory containing the images
-            you want the model to train on
-        boto_session: The Boto session to use for AWS interactions
-        project_name: The name of the project,
-            which will be used for task names, save locations, etc.
-        s3_bucket_name: The name of the S3 bucket to use for the dataset
-        logger: The logger to use for logging messages
+        data_dir: The name of the local directory containing the images you want the model to train on.
+        boto_session: The Boto session to use for AWS interactions.
+        project_name: The name of the project, which will be used for task names, save locations, etc.
+        s3_bucket_name: The name of the S3 bucket to use for the dataset.
+        logger: The logger to use for logging messages.
     """
 
     def __init__(
@@ -167,9 +196,9 @@ class AWSDataset(LocalDataset):
 
     def get_s3_model_uri(self) -> str:
         """
-        Get the S3 URI for the model artifact
+        Get the S3 URI for the model artifact.
         Returns:
-            The S3 URI
+            The S3 URI.
         """
         return make_s3_uri(
             self.bucket_name, f"{self.project_name}/model", "model.tar.gz"
@@ -177,9 +206,9 @@ class AWSDataset(LocalDataset):
 
     def upload_images(self) -> "AWSDataset":
         """
-        Upload images to the S3 bucket
+        Upload images to the S3 bucket.
         Returns:
-            The AWS dataset instance
+            The AWS dataset instance.
         """
         delete_files_in_s3(
             self.boto_session,
