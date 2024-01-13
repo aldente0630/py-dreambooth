@@ -72,7 +72,7 @@ def model_fn(model_dir: str) -> Dict[str, Any]:
     ).to("cuda")
 
     if ast.literal_eval(os.environ.get("TRAIN_TEXT_ENCODER_TI", "True")):
-        state_dict = load_file(model_dir)
+        state_dict = load_file(os.path.join(model_dir, "models_emb.safetensors"))
         pipeline.load_textual_inversion(
             state_dict["clip_l"],
             token=["<s0>", "<s1>"],

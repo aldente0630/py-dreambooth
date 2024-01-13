@@ -699,7 +699,7 @@ class SdxlDreamboothLoraModel(BaseModel):
         num_train_epochs: int = 1,
         max_train_steps: Optional[int] = None,
         learning_rate: float = 1e-4,
-        rank: int = 32,
+        rank: int = 4,
         reduce_gpu_memory_usage: bool = True,
         scheduler_type: Optional[str] = None,
         use_refiner: bool = False,
@@ -938,14 +938,14 @@ class SdxlDreamboothLoraAdvModel(BaseModel):
         seed: Optional[int] = None,
         resolution: int = 1024,
         center_crop: bool = False,
-        train_text_encoder: bool = True,
+        train_text_encoder: bool = False,
         train_batch_size: int = 1,
         num_train_epochs: int = 1,
         max_train_steps: Optional[int] = None,
         learning_rate: Optional[float] = None,
         text_encoder_lr: Optional[float] = None,
         train_text_encoder_ti: bool = True,
-        use_adamw: bool = True,
+        use_adamw: bool = False,
         rank: int = 32,
         reduce_gpu_memory_usage: bool = True,
         scheduler_type: Optional[str] = None,
@@ -958,8 +958,12 @@ class SdxlDreamboothLoraAdvModel(BaseModel):
             subject_name = "TOK"
         if learning_rate is None:
             learning_rate = 1e-4 if use_adamw else 1.0
+        if text_encoder_lr is None:
+            text_encoder_lr = 5e-5 if use_adamw else learning_rate
         if train_text_encoder and train_text_encoder_ti:
-            train_text_encoder_ti = False
+            raise ValueError(
+                "'train_text_encoder' and 'train_text_encoder_ti' cannot be True at the same time."
+            )
 
         super().__init__(
             pretrained_model_name_or_path,
@@ -1032,7 +1036,7 @@ class SdxlDreamboothLoraAdvModel(BaseModel):
         ).to(self.device)
 
         if self.train_text_encoder_ti:
-            state_dict = load_file(output_dir)
+            state_dict = load_file(os.path.join(output_dir, "models_emb.safetensors"))
             pipeline.load_textual_inversion(
                 state_dict["clip_l"],
                 token=["<s0>", "<s1>"],
@@ -1107,6 +1111,8 @@ class SdxlDreamboothLoraAdvModel(BaseModel):
             2,
             "--learning_rate",
             self.learning_rate,
+            "--text_encoder_lr",
+            self.text_encoder_lr,
             "--lr_scheduler",
             "constant",
             "--snr_gamma",
@@ -1140,11 +1146,6 @@ class SdxlDreamboothLoraAdvModel(BaseModel):
 
         if self.train_text_encoder:
             arguments += ["--train_text_encoder", "True"]
-            if self.text_encoder_lr is not None:
-                arguments += [
-                    "--text_encoder_lr",
-                    self.text_encoder_lr,
-                ]
 
         if self.max_train_steps:
             arguments += [
@@ -1163,7 +1164,7 @@ class SdxlDreamboothLoraAdvModel(BaseModel):
                 "--train_text_encoder_ti_frac",
                 0.5,
                 "--adam_weight_decay_text_encoder",
-                "True",
+                0.01,
             ]
 
         if self.use_adamw:
